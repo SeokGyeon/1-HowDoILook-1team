@@ -1,6 +1,5 @@
 import Style from "../models/style.js";
 
-// 스타일 등록
 export const createStyle = async (req, res) => {
   try {
     const style = new Style(req.body);
@@ -11,7 +10,6 @@ export const createStyle = async (req, res) => {
   }
 };
 
-// 스타일 목록 조회
 export const getStyles = async (req, res) => {
   try {
     const styles = await Style.find();
@@ -21,7 +19,6 @@ export const getStyles = async (req, res) => {
   }
 };
 
-// 스타일 수정
 export const updateStyle = async (req, res) => {
   try {
     const { id } = req.params;
@@ -34,7 +31,6 @@ export const updateStyle = async (req, res) => {
   }
 };
 
-// 스타일 삭제
 export const deleteStyle = async (req, res) => {
   try {
     const { id } = req.params;
