@@ -6,6 +6,7 @@ dotenv.config();
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
+      //안정성 및 최적화를 위해 사용한다 함
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
