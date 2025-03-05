@@ -58,5 +58,9 @@ Content-Type: application/json
 ### 스타일 삭제 (DELETE)
 DELETE http://localhost:3000/api/styles/1
 
-### 4. 특정 스타일 상세 조회
+### 특정 스타일 상세 조회
 GET http://localhost:3000/api/styles/67bfc0473f683b06495aa0af
+
+### 스타일 목록 조회 (검색 & 정렬 & 페이지네이션)
+GET http://localhost:3000/api/styles?page=1&limit=5&search=캐&sortBy=createdAt&order=desc
+Content-Type: application/json
