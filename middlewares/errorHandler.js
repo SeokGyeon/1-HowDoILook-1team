@@ -1,7 +1,8 @@
-export const errorHandler = (fn) => async (req, res, next) => {
-  try {
-    await fn(req, res, next);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+const errorHandler = (err, req, res, next) => {
+  console.error(err.message);
+
+  const statusCode = res.statusCode < 400 ? 500 : res.statusCode;
+  res.status(statusCode).json({ error: err.message });
 };
+
+export default errorHandler;
