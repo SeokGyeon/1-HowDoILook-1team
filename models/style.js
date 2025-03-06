@@ -26,4 +26,6 @@ const StyleSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+StyleSchema.index({ title: "text", description: "text", tags: "text" });
+
 export default mongoose.model("Style", StyleSchema);
