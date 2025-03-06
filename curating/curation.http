@@ -1,0 +1,34 @@
+###
+GET http://localhost:3000/api/curations
+
+###
+GET http://localhost:3000/api/curations?searchBy=nickname&keyword=피카츄&page=1&pageSize=10
+###
+GET http://localhost:3000/api/curations?&page=1&pageSize=5
+
+###
+POST http://localhost:3000/api/curations
+Content-Type: application/json
+
+{
+  "nickname": "피카츄",
+  "passwd": "qwe123456",
+  "content": "별로에요",
+  "trendy": 5,
+  "practicality":3,
+  "costEffectiveness":2
+}
+
+###
+PUT http://localhost:3000/api/curations/67bfe75ae66c601c2d83adba
+Content-Type: application/json
+
+{
+  "nickname": "잠만보",
+  "passwd": "qwe12345",
+  "content": "가성비가 나쁘지 않아요",
+  "trendy": 7,
+  "personality": 7,
+  "practicality":7,
+  "costEffectiveness":7
+}
