@@ -1,4 +1,10 @@
-### 스타일 등록 (POST)
+### 랭킹 조회 (트렌드 기준)
+GET http://localhost:3000/api/styles/rankings?sortBy=trendy
+
+### 랭킹 조회 (가격 기준)
+GET http://localhost:3000/api/styles/rankings?sortBy=costEffectiveness
+
+### 스타일 등록
 POST http://localhost:3000/api/styles
 Content-Type: application/json
 
@@ -12,8 +18,30 @@ Content-Type: application/json
   "tags": ["캐주얼", "편안함"],
   "nickname": "스타일러",
   "categories": [
-    { "type": "상의", "name": "티셔츠", "brand": "나이키", "price": 50000 }
-  ]
+    { "type": "신발", "name": "슬립온", "brand": "NB", "price": 90000 }
+  ],
+  "viewCount": 121,
+  "curationCount": 43,
+  "trendy": 7,
+  "personality": 5,
+  "practicality": 6,
+  "costEffectiveness": 7
+}
+
+### 스타일 등록 (POST)
+POST http://localhost:3000/api/styles
+Content-Type: application/json
+
+{
+  "name": "캐주얼",
+  "title": "캐주얼 스타일",
+  "description": "편안한 스타일",
+  "content": "자유로운 스타일입니다.",
+  "imageUrl": "https://picsum.photos/300/400",
+  "thumbnail": "https://picsum.photos/300/400",
+  "tags": ["캐주얼", "편안함"],
+  "nickname": "스타일러",
+  
 }
 
 ### 스타일 목록 조회 (GET)
@@ -30,3 +58,10 @@ Content-Type: application/json
 
 ### 스타일 삭제 (DELETE)
 DELETE http://localhost:3000/api/styles/1
+
+### 특정 스타일 상세 조회
+GET http://localhost:3000/api/styles/67bfc0473f683b06495aa0af
+
+### 스타일 검색 테스트
+GET http://localhost:3000/api/styles?search=캐주얼&sortBy=createdAt&order=desc&page=1&limit=10
+Content-Type: application/json
