@@ -1,30 +1,30 @@
-const express = require('express');
+import express from "express";
 const router = express.Router();
-const {
+import {
   getStyleRankings,
   createStyle,
   getStyles,
   updateStyle,
   deleteStyle,
-  getStyleById
-} = require('../controllers/styleController');
+  getStyleById,
+} from "../controllers/styleController.js";
 
 // 스타일 등록
-router.post('/', createStyle);
+router.post("/", createStyle);
 
 // 스타일 목록 조회
-router.get('/', getStyles);
+router.get("/", getStyles);
 
 // 스타일 상세 조회
-router.get('/:id', getStyleById);
+router.get("/:id", getStyleById);
 
 // 스타일 수정
-router.patch('/:id', updateStyle);
+router.patch("/:id", updateStyle);
 
 // 스타일 삭제
-router.delete('/:id', deleteStyle);
+router.delete("/:id", deleteStyle);
 
 // 스타일 랭킹 조회
-router.get('/rankings', getStyleRankings);
+router.get("/rankings", getStyleRankings);
 
-module.exports = router; 
+export default router;

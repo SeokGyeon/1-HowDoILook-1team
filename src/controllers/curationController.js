@@ -1,27 +1,31 @@
-const Curation = require('../models/Curation');
-const Style = require('../models/Style');
-const bcrypt = require('bcrypt');
+import prisma from "../config/database.js";
+import bcrypt from "bcrypt";
 
-exports.createCuration = async (req, res, next) => {
+// 큐레이션 등록
+export const createCuration = async (req, res, next) => {
   try {
     const { nickname, password, content, scores } = req.body;
-    const styleId = req.params.styleId;
+    const { styleId } = req.params;
 
     // 비밀번호 해시화
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const curation = new Curation({
-      styleId,
-      nickname,
-      password: hashedPassword,
-      content,
-      scores
+    // 큐레이션 생성
+    const curation = await prisma.curation.create({
+      data: {
+        nickname,
+        password: hashedPassword,
+        content,
+        scores,
+        styleId: Number(styleId),
+      },
     });
 
-    await curation.save();
-
     // 스타일의 큐레이션 카운트 증가
-    await Style.findByIdAndUpdate(styleId, { $inc: { curationCount: 1 } });
+    await prisma.style.update({
+      where: { id: Number(styleId) },
+      data: { curationCount: { increment: 1 } },
+    });
 
     res.status(201).json({
       success: true,
@@ -32,21 +36,31 @@ exports.createCuration = async (req, res, next) => {
   }
 };
 
-exports.getCurations = async (req, res, next) => {
+// 큐레이션 목록 조회
+export const getCurations = async (req, res, next) => {
   const { styleId, page = 1, pageSize = 10, searchBy, keyword } = req.query;
   const query = {};
 
-  if (styleId) query.styleId = styleId;
+  if (styleId) query.styleId = Number(styleId);
   if (searchBy && keyword) {
-    query[searchBy] = { $regex: keyword, $options: "i" };
+    query[searchBy] = {
+      contains: keyword, // Prisma에서 문자열 필터링 시 사용
+      mode: "insensitive",
+    };
   }
 
   try {
     const skip = (page - 1) * pageSize;
-    const curations = await Curation.find(query)
-      .skip(skip)
-      .limit(Number(pageSize));
-    const totalCurations = await Curation.countDocuments(query);
+
+    const curations = await prisma.curation.findMany({
+      where: query,
+      skip: skip,
+      take: Number(pageSize),
+    });
+
+    const totalCurations = await prisma.curation.count({
+      where: query,
+    });
 
     res.status(200).json({
       success: true,
@@ -63,12 +77,15 @@ exports.getCurations = async (req, res, next) => {
   }
 };
 
-exports.updateCuration = async (req, res, next) => {
+// 큐레이션 수정
+export const updateCuration = async (req, res, next) => {
   const { id } = req.params;
   const { passwd, ...updateFields } = req.body;
 
   try {
-    const curation = await Curation.findById(id);
+    const curation = await prisma.curation.findUnique({
+      where: { id: Number(id) },
+    });
 
     if (!curation) {
       const error = new Error("큐레이션을 찾을 수 없습니다.");
@@ -76,30 +93,36 @@ exports.updateCuration = async (req, res, next) => {
       return next(error);
     }
 
-    if (curation.password !== passwd) {
+    const isPasswordCorrect = await bcrypt.compare(passwd, curation.password);
+    if (!isPasswordCorrect) {
       const error = new Error("비밀번호가 일치하지 않습니다.");
       error.status = 401;
       return next(error);
     }
 
-    Object.assign(curation, updateFields);
-    await curation.save();
+    const updatedCuration = await prisma.curation.update({
+      where: { id: Number(id) },
+      data: { ...updateFields },
+    });
 
     res.status(200).json({
       success: true,
-      data: curation,
+      data: updatedCuration,
     });
   } catch (error) {
     next(error);
   }
 };
 
-exports.deleteCuration = async (req, res, next) => {
+// 큐레이션 삭제
+export const deleteCuration = async (req, res, next) => {
   const { id } = req.params;
   const { passwd } = req.body;
 
   try {
-    const curation = await Curation.findById(id);
+    const curation = await prisma.curation.findUnique({
+      where: { id: Number(id) },
+    });
 
     if (!curation) {
       const error = new Error("큐레이션을 찾을 수 없습니다.");
@@ -107,20 +130,28 @@ exports.deleteCuration = async (req, res, next) => {
       return next(error);
     }
 
-    if (curation.password !== passwd) {
+    const isPasswordCorrect = await bcrypt.compare(passwd, curation.password);
+    if (!isPasswordCorrect) {
       const error = new Error("비밀번호가 일치하지 않습니다.");
       error.status = 401;
       return next(error);
     }
 
     // 스타일의 큐레이션 카운트 감소
-    await Style.findByIdAndUpdate(curation.styleId, { $inc: { curationCount: -1 } });
+    await prisma.style.update({
+      where: { id: curation.styleId },
+      data: { curationCount: { decrement: 1 } },
+    });
 
-    await curation.remove();
-    res
-      .status(200)
-      .json({ success: true, message: "큐레이션이 삭제되었습니다." });
+    await prisma.curation.delete({
+      where: { id: Number(id) },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "큐레이션이 삭제되었습니다.",
+    });
   } catch (error) {
     next(error);
   }
-}; 
+};
