@@ -4,9 +4,12 @@ import cors from "cors";
 import path from "path";
 import morgan from "morgan";
 import helmet from "helmet";
-import connectDB from "./src/config/database";
-import errorHandler from "./src/middlewares/errorHandler";
-
+import errorHandler from "./src/middlewares/errorHandler.js";
+import styleRoutes from "./src/routes/styles.js";
+import curationRoutes from "./src/routes/curations.js";
+import commentRoutes from "./src/routes/comments.js";
+import tagRoutes from "./src/routes/tags.js";
+import imageRoutes from "./src/routes/images.js";
 dotenv.config();
 
 const app = express();
@@ -34,15 +37,12 @@ app.use(express.urlencoded({ extended: true }));
 // 정적 파일 서빙 설정
 app.use("/images", express.static(path.join(path.resolve(), "images")));
 
-// 데이터베이스 연결
-connectDB();
-
 // API 라우터
-app.use("/api/styles", import("./src/routes/styles.js"));
-app.use("/api/curations", import("./src/routes/curations.js"));
-app.use("/api/comments", import("./src/routes/comments.js"));
-app.use("/api/tags", import("./src/routes/tags.js"));
-app.use("/api/images", import("./src/routes/images.js"));
+app.use("/api/styles", styleRoutes);
+app.use("/api/curations", curationRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/tags", tagRoutes);
+app.use("/api/images", imageRoutes);
 
 // 에러 핸들링 미들웨어
 app.use(errorHandler);

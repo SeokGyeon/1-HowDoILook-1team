@@ -4,19 +4,30 @@ import bcrypt from "bcrypt";
 // 큐레이션 등록
 export const createCuration = async (req, res, next) => {
   try {
-    const { nickname, password, content, scores } = req.body;
+    const {
+      nickname,
+      passwd,
+      content,
+      trendy,
+      personality,
+      practicality,
+      costEffectiveness,
+    } = req.body;
     const { styleId } = req.params;
 
     // 비밀번호 해시화
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(passwd, 10);
 
     // 큐레이션 생성
     const curation = await prisma.curation.create({
       data: {
         nickname,
-        password: hashedPassword,
+        passwd: hashedPassword,
         content,
-        scores,
+        trendy,
+        personality,
+        practicality,
+        costEffectiveness,
         styleId: Number(styleId),
       },
     });
@@ -93,7 +104,7 @@ export const updateCuration = async (req, res, next) => {
       return next(error);
     }
 
-    const isPasswordCorrect = await bcrypt.compare(passwd, curation.password);
+    const isPasswordCorrect = await bcrypt.compare(passwd, curation.passwd);
     if (!isPasswordCorrect) {
       const error = new Error("비밀번호가 일치하지 않습니다.");
       error.status = 401;
@@ -130,7 +141,7 @@ export const deleteCuration = async (req, res, next) => {
       return next(error);
     }
 
-    const isPasswordCorrect = await bcrypt.compare(passwd, curation.password);
+    const isPasswordCorrect = await bcrypt.compare(passwd, curation.passwd);
     if (!isPasswordCorrect) {
       const error = new Error("비밀번호가 일치하지 않습니다.");
       error.status = 401;
