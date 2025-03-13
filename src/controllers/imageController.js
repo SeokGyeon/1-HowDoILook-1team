@@ -1,6 +1,6 @@
-const { uploadSingleImage } = require('../services/imageService');
+import { uploadSingleImage } from "../services/imageService.js";
 
-exports.uploadImage = (req, res) => {
+export const uploadImage = (req, res) => {
   uploadSingleImage(req, res, (err) => {
     if (err) {
       return res.status(400).json({ error: err.message });
@@ -11,4 +11,4 @@ exports.uploadImage = (req, res) => {
     }`;
     res.status(200).json({ message: "이미지 업로드 성공", imageUrl });
   });
-}; 
+};

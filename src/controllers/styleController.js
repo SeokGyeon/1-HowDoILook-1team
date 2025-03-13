@@ -1,47 +1,60 @@
-const Style = require('../models/Style');
-const Tag = require('../models/Tag');
-const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
+import prisma from "../config/database.js";
+import bcrypt from "bcrypt";
+import fs from "fs";
+import path from "path";
 
-exports.createStyle = async (req, res, next) => {
+// 스타일 생성
+export const createStyle = async (req, res, next) => {
   try {
-    const { name, title, description, content, tags, nickname, password, categories } = req.body;
-    const imageUrl = req.files.map(file => `/uploads/${file.filename}`);
+    const {
+      name,
+      title,
+      description,
+      content,
+      tags,
+      nickname,
+      password,
+      categories,
+    } = req.body;
+
+    const imageUrl = req.files.map((file) => `/uploads/${file.filename}`);
     const thumbnail = imageUrl[0];
 
     // 비밀번호 해시화
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // 태그 처리
-    const tagIds = await Promise.all(tags.map(async (tagName) => {
-      const tag = await Tag.findOneAndUpdate(
-        { name: tagName },
-        { $inc: { count: 1 } },
-        { upsert: true, new: true }
-      );
-      return tag._id;
-    }));
+    const tagIds = await Promise.all(
+      tags.map(async (tagName) => {
+        const tag = await prisma.tag.upsert({
+          where: { name: tagName },
+          update: { count: { increment: 1 } },
+          create: { name: tagName, count: 1 },
+        });
+        return tag.id;
+      })
+    );
 
-    const style = new Style({
-      name,
-      title,
-      description,
-      content,
-      imageUrl,
-      thumbnail,
-      tags: tagIds,
-      nickname,
-      password: hashedPassword,
-      categories
+    const style = await prisma.style.create({
+      data: {
+        name,
+        title,
+        description,
+        content,
+        imageUrl,
+        thumbnail,
+        tags: { connect: tagIds.map((id) => ({ id })) },
+        nickname,
+        password: hashedPassword,
+        categories,
+      },
     });
 
-    await style.save();
     res.status(201).json(style);
   } catch (error) {
     // 에러 발생 시 업로드된 파일 삭제
     if (req.files) {
-      req.files.forEach(file => {
+      req.files.forEach((file) => {
         fs.unlinkSync(file.path);
       });
     }
@@ -49,7 +62,8 @@ exports.createStyle = async (req, res, next) => {
   }
 };
 
-exports.getStyles = async (req, res, next) => {
+// 스타일 목록 조회
+export const getStyles = async (req, res, next) => {
   try {
     const {
       page = 1,
@@ -61,43 +75,52 @@ exports.getStyles = async (req, res, next) => {
 
     const query = search
       ? {
-          $or: [
-            { title: { $regex: search, $options: "i" } },
-            { nickname: { $regex: search, $options: "i" } },
-            { description: { $regex: search, $options: "i" } },
-            { tags: { $regex: search, $options: "i" } },
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { nickname: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+            {
+              tags: {
+                some: { name: { contains: search, mode: "insensitive" } },
+              },
+            },
           ],
         }
       : {};
 
-    const total = await Style.countDocuments(query);
-    const styles = await Style.find(query)
-      .sort({ [sortBy]: order === "desc" ? -1 : 1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    const styles = await prisma.style.findMany({
+      where: query,
+      take: Number(limit),
+      skip: (page - 1) * limit,
+      orderBy: { [sortBy]: order === "desc" ? "desc" : "asc" },
+      include: { tags: true },
+    });
+
+    const totalStyles = await prisma.style.count({ where: query });
 
     res.json({
       success: true,
       data: {
-        total,
+        total: totalStyles,
         page: Number(page),
         limit: Number(limit),
-        styles
-      }
+        styles,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-exports.getStyleById = async (req, res, next) => {
+// 스타일 조회
+export const getStyleById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const style = await Style.findByIdAndUpdate(
-      id,
-      { $inc: { viewCount: 1 } },
-      { new: true }
-    );
+
+    const style = await prisma.style.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+    });
 
     if (!style) {
       const error = new Error("스타일을 찾을 수 없습니다.");
@@ -107,19 +130,20 @@ exports.getStyleById = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: style
+      data: style,
     });
   } catch (error) {
     next(error);
   }
 };
 
-exports.updateStyle = async (req, res, next) => {
+// 스타일 수정
+export const updateStyle = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { passwd, ...updateFields } = req.body;
 
-    const style = await Style.findById(id);
+    const style = await prisma.style.findUnique({ where: { id } });
 
     if (!style) {
       const error = new Error("스타일을 찾을 수 없습니다.");
@@ -136,48 +160,58 @@ exports.updateStyle = async (req, res, next) => {
     // 새로운 이미지가 업로드된 경우
     if (req.files && req.files.length > 0) {
       // 기존 이미지 파일 삭제
-      style.imageUrl.forEach(url => {
-        const filePath = path.join(process.env.UPLOAD_DIR || 'uploads', path.basename(url));
+      style.imageUrl.forEach((url) => {
+        const filePath = path.join(
+          process.env.UPLOAD_DIR || "uploads",
+          path.basename(url)
+        );
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
       });
 
       // 새 이미지 URL 설정
-      updateFields.imageUrl = req.files.map(file => `/uploads/${file.filename}`);
+      updateFields.imageUrl = req.files.map(
+        (file) => `/uploads/${file.filename}`
+      );
       updateFields.thumbnail = updateFields.imageUrl[0];
     }
 
     // 태그 업데이트
     if (updateFields.tags) {
       // 기존 태그의 count 감소
-      await Tag.updateMany(
-        { _id: { $in: style.tags } },
-        { $inc: { count: -1 } }
-      );
+      await prisma.tag.updateMany({
+        where: { id: { in: style.tags } },
+        data: { count: { decrement: 1 } },
+      });
 
       // 새 태그 처리
-      const tagIds = await Promise.all(updateFields.tags.map(async (tagName) => {
-        const tag = await Tag.findOneAndUpdate(
-          { name: tagName },
-          { $inc: { count: 1 } },
-          { upsert: true, new: true }
-        );
-        return tag._id;
-      }));
+      const tagIds = await Promise.all(
+        updateFields.tags.map(async (tagName) => {
+          const tag = await prisma.tag.upsert({
+            where: { name: tagName },
+            update: { count: { increment: 1 } },
+            create: { name: tagName, count: 1 },
+          });
+          return tag.id;
+        })
+      );
       updateFields.tags = tagIds;
     }
 
-    Object.assign(style, updateFields);
-    await style.save();
+    const updatedStyle = await prisma.style.update({
+      where: { id },
+      data: { ...updateFields },
+    });
+
     res.json({
       success: true,
-      data: style
+      data: updatedStyle,
     });
   } catch (error) {
     // 에러 발생 시 업로드된 파일 삭제
     if (req.files) {
-      req.files.forEach(file => {
+      req.files.forEach((file) => {
         fs.unlinkSync(file.path);
       });
     }
@@ -185,12 +219,13 @@ exports.updateStyle = async (req, res, next) => {
   }
 };
 
-exports.deleteStyle = async (req, res, next) => {
+// 스타일 삭제
+export const deleteStyle = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { passwd } = req.body;
 
-    const style = await Style.findById(id);
+    const style = await prisma.style.findUnique({ where: { id } });
 
     if (!style) {
       const error = new Error("스타일을 찾을 수 없습니다.");
@@ -205,68 +240,75 @@ exports.deleteStyle = async (req, res, next) => {
     }
 
     // 이미지 파일 삭제
-    style.imageUrl.forEach(url => {
-      const filePath = path.join(process.env.UPLOAD_DIR || 'uploads', path.basename(url));
+    style.imageUrl.forEach((url) => {
+      const filePath = path.join(
+        process.env.UPLOAD_DIR || "uploads",
+        path.basename(url)
+      );
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
     });
 
     // 태그 count 감소
-    await Tag.updateMany(
-      { _id: { $in: style.tags } },
-      { $inc: { count: -1 } }
-    );
+    await prisma.tag.updateMany({
+      where: { id: { in: style.tags } },
+      data: { count: { decrement: 1 } },
+    });
 
-    await style.remove();
+    await prisma.style.delete({ where: { id } });
+
     res.status(200).json({
       success: true,
-      message: "스타일이 삭제되었습니다."
+      message: "스타일이 삭제되었습니다.",
     });
   } catch (error) {
     next(error);
   }
 };
 
-exports.getRanking = async (req, res) => {
+// 스타일 랭킹 조회
+export const getRanking = async (req, res) => {
   try {
     const { type } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
     let sortOption = {};
     switch (type) {
-      case 'all':
-        sortOption = { curationCount: -1 };
+      case "all":
+        sortOption = { curationCount: "desc" };
         break;
-      case 'trendy':
-      case 'uniqueness':
-      case 'practicality':
-      case 'costEffectiveness':
-        sortOption = { [`averageScores.${type}`]: -1 };
+      case "trendy":
+      case "uniqueness":
+      case "practicality":
+      case "costEffectiveness":
+        sortOption = { [`averageScores.${type}`]: "desc" };
         break;
       default:
-        return res.status(400).json({ message: '잘못된 랭킹 타입입니다.' });
+        return res.status(400).json({ message: "잘못된 랭킹 타입입니다." });
     }
 
-    const styles = await Style.find()
-      .sort(sortOption)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('tags');
+    const styles = await prisma.style.findMany({
+      orderBy: sortOption,
+      take: limit,
+      skip: (page - 1) * limit,
+      include: { tags: true },
+    });
 
-    const count = await Style.countDocuments();
+    const count = await prisma.style.count();
 
     res.json({
       styles,
       totalPages: Math.ceil(count / limit),
-      currentPage: page
+      currentPage: page,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-exports.getStyleRankings = async (req, res, next) => {
+// 스타일 랭킹 조회 (정렬)
+export const getStyleRankings = async (req, res, next) => {
   try {
     const { sortBy = "curationCount", page = 1, limit = 10 } = req.query;
 
@@ -278,18 +320,19 @@ exports.getStyleRankings = async (req, res, next) => {
       "viewCount",
       "curationCount",
     ];
-    
+
     if (!validSortFields.includes(sortBy)) {
       const error = new Error("잘못된 정렬 기준입니다.");
       error.status = 400;
       return next(error);
     }
 
-    const total = await Style.countDocuments();
-    const styles = await Style.find()
-      .sort({ [sortBy]: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    const total = await prisma.style.count();
+    const styles = await prisma.style.findMany({
+      orderBy: { [sortBy]: "desc" },
+      skip: (page - 1) * limit,
+      take: Number(limit),
+    });
 
     res.json({
       success: true,
@@ -297,10 +340,10 @@ exports.getStyleRankings = async (req, res, next) => {
         total,
         page: Number(page),
         limit: Number(limit),
-        styles
-      }
+        styles,
+      },
     });
   } catch (error) {
     next(error);
   }
-}; 
+};
